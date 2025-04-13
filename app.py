@@ -16,6 +16,10 @@ if "history" not in st.session_state:
     st.session_state.history = []
 if "game_over" not in st.session_state:
     st.session_state.game_over = False
+if "decision_made" not in st.session_state:
+    st.session_state.decision_made = False
+if "decision_result" not in st.session_state:
+    st.session_state.decision_result = None
 
 # Function to generate initial company profile using Gemini API
 def generate_company_profile():
@@ -49,7 +53,6 @@ def generate_company_profile():
 
 # Function to format company profile as plain text
 def format_company_profile(company):
-    # Handle missing or differently named 'personnel' key
     personnel_list = company.get("personnel", [])
     if not personnel_list:
         personnel_text = "- No se proporcionó información de personal clave."
@@ -155,6 +158,8 @@ if page == "Inicio":
             st.session_state.round = 0
             st.session_state.history = []
             st.session_state.game_over = False
+            st.session_state.decision_made = False
+            st.session_state.decision_result = None
             st.rerun()
     
     if st.session_state.company:
@@ -192,7 +197,7 @@ elif page == "Simulación":
             # User input
             choice = st.radio("Selecciona una opción", ["A", "B", "C", "D"], key=f"choice_{st.session_state.round}")
             
-            if st.button("Confirmar Decisión"):
+            if st.button("Confirmar Decisión") and not st.session_state.decision_made:
                 # Update company state
                 result = update_company_state(company, choice, challenge)
                 
@@ -208,15 +213,28 @@ elif page == "Simulación":
                     "satisfaction": company["satisfaction"]
                 })
                 
-                # Display results
+                # Store decision result
+                st.session_state.decision_result = {
+                    "explanation": challenge["explanation"],
+                    "bancarrota": result == "bancarrota"
+                }
+                st.session_state.decision_made = True
+                st.rerun()
+            
+            # Display decision result if available
+            if st.session_state.decision_made and st.session_state.decision_result:
                 st.write("**Resultado de tu decisión**:")
-                st.write(challenge["explanation"])
-                
-                if result == "bancarrota":
+                st.write(st.session_state.decision_result["explanation"])
+                if st.session_state.decision_result["bancarrota"]:
                     st.error("¡La empresa ha quebrado!")
                     st.session_state.game_over = True
-                else:
+            
+            # Continue to next round
+            if st.session_state.decision_made and not st.session_state.game_over:
+                if st.button("Continuar"):
                     st.session_state.round += 1
+                    st.session_state.decision_made = False
+                    st.session_state.decision_result = None
                     del st.session_state.current_challenge  # Clear current challenge
                     st.rerun()
         else:
