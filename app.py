@@ -110,7 +110,12 @@ def create_fallback_challenge(company, difficulty):
                 "D": "Aumentar precios para posicionarte como premium."
             },
             "correct_option": "A",
-            "explanation": "A fortalece la propuesta de valor, manteniendo la cuota de mercado. B es pasivo y arriesgado. C daña la satisfacción de clientes. D puede alejar a los clientes sensibles al precio."
+            "consequences": {
+                "A": "Tu inversión en marketing ha reforzado la percepción de calidad, atrayendo más clientes.",
+                "B": "Al no actuar, algunos clientes han migrado a la competencia, afectando tus ventas.",
+                "C": "Reducir la calidad ha generado quejas, dañando la satisfacción de clientes.",
+                "D": "El aumento de precios ha alejado a clientes sensibles al costo, reduciendo tu cuota de mercado."
+            }
         },
         {
             "description": "Una queja viral en redes sociales afecta la satisfacción de clientes.",
@@ -121,7 +126,12 @@ def create_fallback_challenge(company, difficulty):
                 "D": "Reducir la interacción en redes sociales."
             },
             "correct_option": "A",
-            "explanation": "A muestra compromiso con los clientes, mejorando la satisfacción. B empeora la percepción pública. C genera mala prensa. D limita la comunicación efectiva."
+            "consequences": {
+                "A": "Tu respuesta rápida ha restaurado la confianza, mejorando la percepción de los clientes.",
+                "B": "Ignorar la queja ha amplificado el descontento, afectando tu reputación.",
+                "C": "La demanda ha generado más atención negativa, empeorando la satisfacción de clientes.",
+                "D": "Menos interacción ha limitado tu capacidad de gestionar la crisis, afectando la confianza."
+            }
         },
         {
             "description": f"Tu capital (${company.get('capital', 0):,}) está bajo presión por costos operativos altos.",
@@ -132,7 +142,12 @@ def create_fallback_challenge(company, difficulty):
                 "D": "Aumentar precios para compensar costos."
             },
             "correct_option": "A",
-            "explanation": "A mejora la eficiencia, preservando capital. B ignora el problema. C reduce empleados y satisfacción. D puede afectar la cuota de mercado."
+            "consequences": {
+                "A": "La optimización ha reducido costos, liberando capital para nuevas iniciativas.",
+                "B": "No actuar ha mantenido la presión financiera, limitando tus recursos.",
+                "C": "Los despidos han bajado la moral, afectando la satisfacción de empleados.",
+                "D": "Subir precios ha causado pérdida de clientes, impactando la cuota de mercado."
+            }
         },
         {
             "description": f"La satisfacción de empleados ({company.get('satisfaction', 0)}%) está cayendo por falta de incentivos.",
@@ -143,30 +158,36 @@ def create_fallback_challenge(company, difficulty):
                 "D": "Reducir beneficios para ahorrar costos."
             },
             "correct_option": "A",
-            "explanation": "A impulsa la satisfacción y productividad. B ignora el problema. C empeora la moral. D reduce aún más la satisfacción."
+            "consequences": {
+                "A": "Los bonos y capacitación han motivado al equipo, aumentando la productividad.",
+                "B": "Ignorar a los empleados ha causado descontento, reduciendo su compromiso.",
+                "C": "Más carga de trabajo ha generado estrés, bajando la satisfacción de empleados.",
+                "D": "Reducir beneficios ha desmotivado al personal, afectando la moral."
+            }
         }
     ]
     
     # Adjust scenario likelihood based on company state
     weights = [0.25] * len(scenarios)
     if company.get("market_share", 20) < 15:
-        weights[0] *= 2  # More likely to get competitor challenge
+        weights[0] *= 2
     if company.get("customer_satisfaction", 70) < 50:
-        weights[1] *= 2  # More likely to get social media challenge
+        weights[1] *= 2
     if company.get("capital", 500000) < 100000:
-        weights[2] *= 2  # More likely to get cost challenge
+        weights[2] *= 2
     if company.get("satisfaction", 70) < 50:
-        weights[3] *= 2  # More likely to get employee challenge
+        weights[3] *= 2
     
-    # Adjust explanation based on difficulty
+    # Add difficulty note
     difficulty_note = {
-        "Easy": "El impacto será moderado debido a la dificultad baja.",
-        "Medium": "El impacto será estándar.",
-        "Hard": "El impacto será significativo debido a la dificultad alta."
+        "Easy": "El impacto es moderado debido a la dificultad baja.",
+        "Medium": "El impacto es estándar.",
+        "Hard": "El impacto es significativo debido a la dificultad alta."
     }
     
     challenge = random.choices(scenarios, weights=weights, k=1)[0]
-    challenge["explanation"] += f" {difficulty_note[difficulty]}"
+    for opt in challenge["consequences"]:
+        challenge["consequences"][opt] += f" {difficulty_note[difficulty]}"
     return challenge
 
 # Function to generate a challenge using Gemini API with retries
@@ -181,11 +202,11 @@ def generate_challenge(company, max_retries=3):
     - Satisfacción de Clientes: {company.get('customer_satisfaction', 0)}%
     - Cuota de Mercado: {company.get('market_share', 0)}%
     - Dificultad: {st.session_state.difficulty}
-    Genera un desafío realista en español que enfrente el CEO, con 4 opciones de respuesta (una claramente mejor, una neutral, dos negativas). Incluye:
+    Genera un desafío realista en español que enfrente el CEO, con 4 opciones de respuesta (etiquetadas A, B, C, D). Incluye:
     - Descripción del desafío
-    - 4 opciones de respuesta (etiquetadas A, B, C, D)
+    - 4 opciones de respuesta
     - La opción correcta (letra)
-    - Explicación de por qué la opción correcta es la mejor y las consecuencias de cada opción
+    - Consecuencias específicas para cada opción (sin mencionar cuál es la correcta o compararlas)
     Devuelve la respuesta en formato JSON.
     Ejemplo:
     {{
@@ -197,7 +218,12 @@ def generate_challenge(company, max_retries=3):
         "D": "Cambiar el producto..."
       }},
       "correct_option": "A",
-      "explanation": "A es la mejor opción porque..."
+      "consequences": {{
+        "A": "El descuento mejora la relación con el cliente.",
+        "B": "Ignorar el problema causa pérdida de confianza.",
+        "C": "Subir precios aleja al cliente.",
+        "D": "Cambiar el producto genera incertidumbre."
+      }}
     }}
     """
     for attempt in range(max_retries):
@@ -414,8 +440,7 @@ elif page == "Simulación":
                     "round": st.session_state.round + 1,
                     "challenge": challenge["description"],
                     "choice": choice,
-                    "explanation": challenge["explanation"],
-                    "correct_option": challenge["correct_option"],
+                    "consequence": challenge["consequences"][choice],
                     "capital": company["capital"],
                     "employees": company["employees"],
                     "satisfaction": company["satisfaction"],
@@ -425,24 +450,24 @@ elif page == "Simulación":
                 
                 # Store decision result
                 st.session_state.decision_result = {
-                    "explanation": challenge["explanation"],
-                    "bancarrota": result == "bancarrota",
-                    "correct": choice == challenge["correct_option"]
+                    "consequence": challenge["consequences"][choice],
+                    "bancarrota": result == "bancarrota"
                 }
                 st.session_state.decision_made = True
             
-            # Display decision result immediately after confirmation
+            # Display decision analysis immediately after confirmation
             if st.session_state.decision_made and st.session_state.decision_result:
                 st.subheader("Análisis de tu Decisión")
+                st.markdown(f"**Consecuencias**: {st.session_state.decision_result['consequence']}")
                 if st.session_state.decision_result["bancarrota"]:
-                    st.error("¡La empresa ha quebrado! Tu decisión ha llevado a la empresa a una situación insostenible.")
-                    st.markdown(f"**Detalles**: {st.session_state.decision_result['explanation']}")
-                elif st.session_state.decision_result["correct"]:
-                    st.success("¡Decisión acertada! Has elegido la mejor opción para la empresa.")
-                    st.markdown(f"**Detalles**: {st.session_state.decision_result['explanation']}")
+                    st.error("¡La empresa ha quebrado! Las decisiones acumuladas han llevado a una situación insostenible.")
                 else:
-                    st.warning("Decisión incorrecta. Podrías haber elegido una mejor opción.")
-                    st.markdown(f"**Detalles**: {st.session_state.decision_result['explanation']}")
+                    st.write("**Estado Actualizado de la Empresa**")
+                    st.write(f"- Capital: ${company.get('capital', 0):,}")
+                    st.write(f"- Empleados: {company.get('employees', 0)}")
+                    st.write(f"- Satisfacción de Empleados: {company.get('satisfaction', 0)}%")
+                    st.write(f"- Satisfacción de Clientes: {company.get('customer_satisfaction', 0)}%")
+                    st.write(f"- Cuota de Mercado: {company.get('market_share', 0)}%")
             
             # Continue to next round
             if st.session_state.decision_made and not st.session_state.game_over:
@@ -497,5 +522,5 @@ elif page == "Resultados":
             with st.expander(f"Ronda {record['round']}: {record['challenge'][:50]}..."):
                 st.write(f"**Desafío**: {record['challenge']}")
                 st.write(f"- Decisión: {record['choice']}")
-                st.write(f"- Explicación: {record['explanation']}")
+                st.write(f"- Consecuencias: {record['consequence']}")
                 st.write(f"- Estado: Capital ${record['capital']:,}, Empleados {record['employees']}, Satisfacción {record['satisfaction']}%, Clientes {record['customer_satisfaction']}%, Mercado {record['market_share']}%")
