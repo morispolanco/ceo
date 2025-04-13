@@ -28,10 +28,12 @@ if "initial_company" not in st.session_state:
     st.session_state.initial_company = None
 if "difficulty" not in st.session_state:
     st.session_state.difficulty = "Medium"
+if "page" not in st.session_state:
+    st.session_state.page = "Inicio"
 
 # Function to reset the game
 def reset_game():
-    keys = ["company", "round", "history", "game_over", "decision_made", "decision_result", "initial_company", "current_challenge", "difficulty"]
+    keys = ["company", "round", "history", "game_over", "decision_made", "decision_result", "initial_company", "current_challenge", "difficulty", "page"]
     for key in keys:
         if key in st.session_state:
             del st.session_state[key]
@@ -303,7 +305,8 @@ def save_game_state():
         "history": st.session_state.history,
         "game_over": st.session_state.game_over,
         "initial_company": st.session_state.initial_company,
-        "difficulty": st.session_state.difficulty
+        "difficulty": st.session_state.difficulty,
+        "page": st.session_state.page
     }
     buffer = io.BytesIO()
     buffer.write(json.dumps(state, ensure_ascii=False).encode('utf-8'))
@@ -320,6 +323,7 @@ def load_game_state(uploaded_file):
         st.session_state.game_over = state["game_over"]
         st.session_state.initial_company = state["initial_company"]
         st.session_state.difficulty = state.get("difficulty", "Medium")
+        st.session_state.page = state.get("page", "Inicio")
         st.session_state.decision_made = False
         st.session_state.decision_result = None
         if "current_challenge" in st.session_state:
@@ -333,8 +337,10 @@ st.title("Simulación de Negocios")
 
 # Sidebar for navigation
 st.sidebar.header("Navegación")
-page = st.sidebar.radio("Ir a", ["Inicio", "Simulación", "Resultados"])
-st.sidebar.button("Reiniciar Simulación", on_click=reset_game)
+page = st.sidebar.radio("Ir a", ["Inicio", "Simulación", "Resultados"], index=["Inicio", "Simulación", "Resultados"].index(st.session_state.page), key="page_selector")
+if page != st.session_state.page:
+    st.session_state.page = page
+    st.rerun()
 
 # Save/Load in sidebar
 st.sidebar.header("Guardar/Cargar")
@@ -349,7 +355,7 @@ uploaded_file = st.sidebar.file_uploader("Cargar Juego", type=["json"])
 if uploaded_file:
     load_game_state(uploaded_file)
 
-if page == "Inicio":
+if st.session_state.page == "Inicio":
     st.header("Bienvenido a la Simulación de Negocios")
     st.write("Toma el rol de CEO de una empresa mediana. Tu objetivo es tomar decisiones estratégicas para mejorar la empresa a lo largo de 20 rondas.")
     
@@ -374,13 +380,16 @@ if page == "Inicio":
             st.session_state.game_over = False
             st.session_state.decision_made = False
             st.session_state.decision_result = None
+            # Navigate to Simulación page
+            st.session_state.page = "Simulación"
             st.rerun()
     
-    if st.session_state.company:
+    # Show company profile if already created but still on Inicio
+    if st.session_state.company and st.session_state.page == "Inicio":
         st.subheader("Perfil Inicial de la Empresa")
         st.markdown(format_company_profile(st.session_state.company))
 
-elif page == "Simulación":
+elif st.session_state.page == "Simulación":
     if not st.session_state.company:
         st.warning("Por favor, inicia la simulación desde la página de Inicio.")
     else:
@@ -483,7 +492,7 @@ elif page == "Simulación":
         else:
             st.info("La simulación ha terminado. Ve a la página de Resultados.")
 
-elif page == "Resultados":
+elif st.session_state.page == "Resultados":
     if not st.session_state.company or st.session_state.round == 0:
         st.warning("No hay resultados disponibles. Por favor, completa la simulación.")
     else:
