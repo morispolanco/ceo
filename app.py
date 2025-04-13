@@ -102,7 +102,7 @@ if page == "Inicio":
         st.session_state.round = 0
         st.session_state.history = []
         st.session_state.game_over = False
-        st.experimental_rerun()
+        st.rerun()  # Changed from st.experimental_rerun()
     
     if st.session_state.company:
         st.subheader("Perfil Inicial de la Empresa")
@@ -161,7 +161,7 @@ elif page == "Simulación":
                 else:
                     st.session_state.round += 1
                     del st.session_state.current_challenge  # Clear current challenge
-                    st.experimental_rerun()
+                    st.rerun()  # Changed from st.experimental_rerun()
         else:
             st.info("La simulación ha terminado. Ve a la página de Resultados.")
 
