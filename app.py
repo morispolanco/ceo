@@ -98,6 +98,77 @@ def format_company_profile(company):
     {personnel_text}
     """
 
+# Function to generate a dynamic fallback challenge
+def create_fallback_challenge(company, difficulty):
+    scenarios = [
+        {
+            "description": "Un competidor lanza un producto similar a menor precio, amenazando tu cuota de mercado.",
+            "options": {
+                "A": "Invertir en marketing para destacar la calidad del producto.",
+                "B": "Mantener precios y observar el mercado.",
+                "C": "Reducir la calidad para bajar costos y competir en precio.",
+                "D": "Aumentar precios para posicionarte como premium."
+            },
+            "correct_option": "A",
+            "explanation": "A fortalece la propuesta de valor, manteniendo la cuota de mercado. B es pasivo y arriesgado. C daña la satisfacción de clientes. D puede alejar a los clientes sensibles al precio."
+        },
+        {
+            "description": "Una queja viral en redes sociales afecta la satisfacción de clientes.",
+            "options": {
+                "A": "Responder públicamente y ofrecer una solución inmediata.",
+                "B": "Ignorar el problema, esperando que pase desapercibido.",
+                "C": "Demandar a los responsables por difamación.",
+                "D": "Reducir la interacción en redes sociales."
+            },
+            "correct_option": "A",
+            "explanation": "A muestra compromiso con los clientes, mejorando la satisfacción. B empeora la percepción pública. C genera mala prensa. D limita la comunicación efectiva."
+        },
+        {
+            "description": f"Tu capital (${company.get('capital', 0):,}) está bajo presión por costos operativos altos.",
+            "options": {
+                "A": "Optimizar procesos para reducir costos sin afectar calidad.",
+                "B": "Mantener operaciones sin cambios.",
+                "C": "Despedir personal para ahorrar rápidamente.",
+                "D": "Aumentar precios para compensar costos."
+            },
+            "correct_option": "A",
+            "explanation": "A mejora la eficiencia, preservando capital. B ignora el problema. C reduce empleados y satisfacción. D puede afectar la cuota de mercado."
+        },
+        {
+            "description": f"La satisfacción de empleados ({company.get('satisfaction', 0)}%) está cayendo por falta de incentivos.",
+            "options": {
+                "A": "Implementar un programa de bonos y capacitación.",
+                "B": "Continuar sin cambios, enfocándote en clientes.",
+                "C": "Aumentar la carga de trabajo para mejorar resultados.",
+                "D": "Reducir beneficios para ahorrar costos."
+            },
+            "correct_option": "A",
+            "explanation": "A impulsa la satisfacción y productividad. B ignora el problema. C empeora la moral. D reduce aún más la satisfacción."
+        }
+    ]
+    
+    # Adjust scenario likelihood based on company state
+    weights = [0.25] * len(scenarios)
+    if company.get("market_share", 20) < 15:
+        weights[0] *= 2  # More likely to get competitor challenge
+    if company.get("customer_satisfaction", 70) < 50:
+        weights[1] *= 2  # More likely to get social media challenge
+    if company.get("capital", 500000) < 100000:
+        weights[2] *= 2  # More likely to get cost challenge
+    if company.get("satisfaction", 70) < 50:
+        weights[3] *= 2  # More likely to get employee challenge
+    
+    # Adjust explanation based on difficulty
+    difficulty_note = {
+        "Easy": "El impacto será moderado debido a la dificultad baja.",
+        "Medium": "El impacto será estándar.",
+        "Hard": "El impacto será significativo debido a la dificultad alta."
+    }
+    
+    challenge = random.choices(scenarios, weights=weights, k=1)[0]
+    challenge["explanation"] += f" {difficulty_note[difficulty]}"
+    return challenge
+
 # Function to generate a challenge using Gemini API with retries
 def generate_challenge(company, max_retries=3):
     prompt = f"""
@@ -106,8 +177,10 @@ def generate_challenge(company, max_retries=3):
     - Inventario: {company.get('inventory', 'No disponible')}
     - Capital: ${company.get('capital', 0)}
     - Empleados: {company.get('employees', 0)}
+    - Satisfacción de Empleados: {company.get('satisfaction', 0)}%
     - Satisfacción de Clientes: {company.get('customer_satisfaction', 0)}%
     - Cuota de Mercado: {company.get('market_share', 0)}%
+    - Dificultad: {st.session_state.difficulty}
     Genera un desafío realista en español que enfrente el CEO, con 4 opciones de respuesta (una claramente mejor, una neutral, dos negativas). Incluye:
     - Descripción del desafío
     - 4 opciones de respuesta (etiquetadas A, B, C, D)
@@ -133,20 +206,10 @@ def generate_challenge(company, max_retries=3):
             return json.loads(response.text.strip("```json\n").strip("```"))
         except (json.JSONDecodeError, Exception) as e:
             if attempt == max_retries - 1:
-                st.error("No se pudo generar el desafío. Usando desafío predeterminado.")
-                return {
-                    "description": "Un competidor ha lanzado un producto similar a menor precio.",
-                    "options": {
-                        "A": "Invertir en marketing para destacar la calidad.",
-                        "B": "Mantener precios y observar el mercado.",
-                        "C": "Reducir calidad para bajar costos.",
-                        "D": "Aumentar precios para parecer premium."
-                    },
-                    "correct_option": "A",
-                    "explanation": "A es la mejor opción porque refuerza la propuesta de valor. B es neutral pero arriesgado. C daña la reputación. D aleja clientes."
-                }
+                st.warning("No se pudo generar el desafío. Generando desafío dinámico.")
+                return create_fallback_challenge(company, st.session_state.difficulty)
             time.sleep(2 ** attempt)
-    return None
+    return create_fallback_challenge(company, st.session_state.difficulty)
 
 # Function to update company state based on decision with difficulty-based impacts
 def update_company_state(company, choice, challenge):
