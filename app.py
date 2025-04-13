@@ -430,17 +430,19 @@ elif page == "Simulación":
                     "correct": choice == challenge["correct_option"]
                 }
                 st.session_state.decision_made = True
-                st.rerun()
             
-            # Display decision result if available
+            # Display decision result immediately after confirmation
             if st.session_state.decision_made and st.session_state.decision_result:
-                st.write("**Resultado de tu decisión**:")
+                st.subheader("Análisis de tu Decisión")
                 if st.session_state.decision_result["bancarrota"]:
-                    st.error("¡La empresa ha quebrado!")
+                    st.error("¡La empresa ha quebrado! Tu decisión ha llevado a la empresa a una situación insostenible.")
+                    st.markdown(f"**Detalles**: {st.session_state.decision_result['explanation']}")
                 elif st.session_state.decision_result["correct"]:
-                    st.success(st.session_state.decision_result["explanation"])
+                    st.success("¡Decisión acertada! Has elegido la mejor opción para la empresa.")
+                    st.markdown(f"**Detalles**: {st.session_state.decision_result['explanation']}")
                 else:
-                    st.warning(st.session_state.decision_result["explanation"])
+                    st.warning("Decisión incorrecta. Podrías haber elegido una mejor opción.")
+                    st.markdown(f"**Detalles**: {st.session_state.decision_result['explanation']}")
             
             # Continue to next round
             if st.session_state.decision_made and not st.session_state.game_over:
@@ -451,6 +453,8 @@ elif page == "Simulación":
                     if "current_challenge" in st.session_state:
                         del st.session_state.current_challenge
                     st.rerun()
+            elif st.session_state.game_over:
+                st.info("La simulación ha terminado debido a la bancarrota. Ve a la página de Resultados o reinicia el juego.")
         else:
             st.info("La simulación ha terminado. Ve a la página de Resultados.")
 
