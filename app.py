@@ -29,7 +29,24 @@ def generate_company_profile():
     Devuelve la respuesta en formato JSON.
     """
     response = model.generate_content(prompt)
-    return json.loads(response.text.strip("```json\n").strip("```"))
+    try:
+        return json.loads(response.text.strip("```json\n").strip("```"))
+    except json.JSONDecodeError:
+        st.error("Error al procesar la respuesta del API. Intenta de nuevo.")
+        return None
+
+# Function to format company profile as plain text
+def format_company_profile(company):
+    personnel = "\n".join([f"- {person['name']}: {person['role']}" for person in company['personnel']])
+    return f"""
+    **Productos o Servicios**: {company['products']}
+    **Inventario**: {company['inventory']}
+    **Capital Inicial**: ${company['capital']}
+    **Número de Empleados**: {company['employees']}
+    **Satisfacción de Empleados**: {company['satisfaction']}%
+    **Personal Clave**:
+    {personnel}
+    """
 
 # Function to generate a challenge using Gemini API
 def generate_challenge(company):
@@ -47,7 +64,11 @@ def generate_challenge(company):
     Devuelve la respuesta en formato JSON.
     """
     response = model.generate_content(prompt)
-    return json.loads(response.text.strip("```json\n").strip("```"))
+    try:
+        return json.loads(response.text.strip("```json\n").strip("```"))
+    except json.JSONDecodeError:
+        st.error("Error al procesar el desafío del API. Intenta de nuevo.")
+        return None
 
 # Function to update company state based on decision
 def update_company_state(company, choice, challenge):
@@ -64,7 +85,7 @@ def update_company_state(company, choice, challenge):
         impacts[choice] = {"capital": -random.randint(5000, 20000), "employees": -random.randint(0, 2), "satisfaction": -random.randint(5, 15)}
     
     company["capital"] += impacts[choice]["capital"]
-    company["employees"] += impacts[choice]["employees"]
+    company["employees"] = max(0, company["employees"] + impacts[choice]["employees"])  # Prevent negative employees
     company["satisfaction"] = max(0, min(100, company["satisfaction"] + impacts[choice]["satisfaction"]))
     
     if company["capital"] <= 0 or company["employees"] <= 0 or company["satisfaction"] <= 10:
@@ -96,17 +117,19 @@ if page == "Inicio":
     
     if st.button("Iniciar Simulación"):
         # Generate company profile
-        st.session_state.company = generate_company_profile()
-        st.session_state.company["satisfaction"] = 70  # Initial employee satisfaction
-        st.session_state.initial_company = st.session_state.company.copy()
-        st.session_state.round = 0
-        st.session_state.history = []
-        st.session_state.game_over = False
-        st.rerun()  # Changed from st.experimental_rerun()
+        company = generate_company_profile()
+        if company:
+            company["satisfaction"] = 70  # Initial employee satisfaction
+            st.session_state.company = company
+            st.session_state.initial_company = company.copy()
+            st.session_state.round = 0
+            st.session_state.history = []
+            st.session_state.game_over = False
+            st.rerun()
     
     if st.session_state.company:
         st.subheader("Perfil Inicial de la Empresa")
-        st.json(st.session_state.company)
+        st.markdown(format_company_profile(st.session_state.company))
 
 elif page == "Simulación":
     if not st.session_state.company:
@@ -124,7 +147,11 @@ elif page == "Simulación":
         if st.session_state.round < 20 and not st.session_state.game_over:
             # Generate challenge
             if "current_challenge" not in st.session_state:
-                st.session_state.current_challenge = generate_challenge(company)
+                challenge = generate_challenge(company)
+                if challenge:
+                    st.session_state.current_challenge = challenge
+                else:
+                    st.stop()
             
             challenge = st.session_state.current_challenge
             st.write(f"**Desafío**: {challenge['description']}")
@@ -161,7 +188,7 @@ elif page == "Simulación":
                 else:
                     st.session_state.round += 1
                     del st.session_state.current_challenge  # Clear current challenge
-                    st.rerun()  # Changed from st.experimental_rerun()
+                    st.rerun()
         else:
             st.info("La simulación ha terminado. Ve a la página de Resultados.")
 
