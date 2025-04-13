@@ -29,7 +29,7 @@ if "initial_company" not in st.session_state:
 if "difficulty" not in st.session_state:
     st.session_state.difficulty = "Medium"
 if "page" not in st.session_state:
-    st.session_state.page = "Inicio"
+    st.session_state.page = "Perfil inicial de la empresa"
 
 # Function to reset the game
 def reset_game():
@@ -323,7 +323,7 @@ def load_game_state(uploaded_file):
         st.session_state.game_over = state["game_over"]
         st.session_state.initial_company = state["initial_company"]
         st.session_state.difficulty = state.get("difficulty", "Medium")
-        st.session_state.page = state.get("page", "Inicio")
+        st.session_state.page = state.get("page", "Perfil inicial de la empresa")
         st.session_state.decision_made = False
         st.session_state.decision_result = None
         if "current_challenge" in st.session_state:
@@ -337,7 +337,12 @@ st.title("Simulación de Negocios")
 
 # Sidebar for navigation
 st.sidebar.header("Navegación")
-page = st.sidebar.radio("Ir a", ["Inicio", "Simulación", "Resultados"], index=["Inicio", "Simulación", "Resultados"].index(st.session_state.page), key="page_selector")
+page = st.sidebar.radio(
+    "Ir a",
+    ["Perfil inicial de la empresa", "Simulación", "Resultados"],
+    index=["Perfil inicial de la empresa", "Simulación", "Resultados"].index(st.session_state.page),
+    key="page_selector"
+)
 if page != st.session_state.page:
     st.session_state.page = page
     st.rerun()
@@ -355,9 +360,9 @@ uploaded_file = st.sidebar.file_uploader("Cargar Juego", type=["json"])
 if uploaded_file:
     load_game_state(uploaded_file)
 
-if st.session_state.page == "Inicio":
-    st.header("Bienvenido a la Simulación de Negocios")
-    st.write("Toma el rol de CEO de una empresa mediana. Tu objetivo es tomar decisiones estratégicas para mejorar la empresa a lo largo de 20 rondas.")
+if st.session_state.page == "Perfil inicial de la empresa":
+    st.header("Perfil Inicial de la Empresa")
+    st.write("Toma el rol de CEO de una empresa mediana. Genera el perfil de tu empresa y comienza a tomar decisiones estratégicas para mejorarla a lo largo de 20 rondas.")
     
     # Difficulty selection
     st.session_state.difficulty = st.selectbox(
@@ -366,32 +371,32 @@ if st.session_state.page == "Inicio":
         index=["Easy", "Medium", "Hard"].index(st.session_state.difficulty)
     )
     
-    if st.button("Iniciar Simulación"):
-        # Generate company profile
-        company = generate_company_profile()
-        if company:
-            company["satisfaction"] = 70
-            company["customer_satisfaction"] = 70
-            company["market_share"] = 20
-            st.session_state.company = company
-            st.session_state.initial_company = copy.deepcopy(company)
-            st.session_state.round = 0
-            st.session_state.history = []
-            st.session_state.game_over = False
-            st.session_state.decision_made = False
-            st.session_state.decision_result = None
-            # Navigate to Simulación page
+    if not st.session_state.company:
+        if st.button("Generar Perfil"):
+            # Generate company profile
+            company = generate_company_profile()
+            if company:
+                company["satisfaction"] = 70
+                company["customer_satisfaction"] = 70
+                company["market_share"] = 20
+                st.session_state.company = company
+                st.session_state.initial_company = copy.deepcopy(company)
+                st.session_state.round = 0
+                st.session_state.history = []
+                st.session_state.game_over = False
+                st.session_state.decision_made = False
+                st.session_state.decision_result = None
+                st.rerun()
+    else:
+        st.subheader("Perfil de la Empresa")
+        st.markdown(format_company_profile(st.session_state.company))
+        if st.button("Iniciar Simulación"):
             st.session_state.page = "Simulación"
             st.rerun()
-    
-    # Show company profile if already created but still on Inicio
-    if st.session_state.company and st.session_state.page == "Inicio":
-        st.subheader("Perfil Inicial de la Empresa")
-        st.markdown(format_company_profile(st.session_state.company))
 
 elif st.session_state.page == "Simulación":
     if not st.session_state.company:
-        st.warning("Por favor, inicia la simulación desde la página de Inicio.")
+        st.warning("Por favor, genera un perfil desde la página de Perfil inicial de la empresa.")
     else:
         st.subheader(f"Ronda {st.session_state.round + 1}/20 (Dificultad: {st.session_state.difficulty})")
         company = st.session_state.company
