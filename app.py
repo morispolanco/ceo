@@ -20,13 +20,25 @@ if "game_over" not in st.session_state:
 # Function to generate initial company profile using Gemini API
 def generate_company_profile():
     prompt = """
-    Genera un perfil detallado en español de una empresa mediana estable. Incluye:
-    - Productos o servicios ofrecidos
-    - Inventario (descripción general)
-    - Capital inicial (en USD)
-    - Número de empleados
-    - Personal clave: gerente comercial, gerente financiero, gerente de recursos humanos, gerente de relaciones públicas, gerente de marketing, gerente de operaciones, otros puestos relevantes (nombres y roles).
-    Devuelve la respuesta en formato JSON.
+    Genera un perfil detallado en español de una empresa mediana estable. Incluye exactamente los siguientes campos en formato JSON:
+    - "products": Descripción de productos o servicios ofrecidos (texto).
+    - "inventory": Descripción general del inventario (texto).
+    - "capital": Capital inicial en USD (número entero).
+    - "employees": Número de empleados (número entero).
+    - "personnel": Lista de objetos con "name" (nombre completo) y "role" (rol en la empresa). Incluye al menos: gerente comercial, gerente financiero, gerente de recursos humanos, gerente de relaciones públicas, gerente de marketing, gerente de operaciones, y otros puestos relevantes.
+    Ejemplo:
+    {
+      "products": "Software de gestión empresarial",
+      "inventory": "Licencias de software y servidores",
+      "capital": 500000,
+      "employees": 50,
+      "personnel": [
+        {"name": "Ana López", "role": "Gerente Comercial"},
+        {"name": "Carlos Pérez", "role": "Gerente Financiero"},
+        ...
+      ]
+    }
+    Devuelve solo el JSON, sin texto adicional.
     """
     response = model.generate_content(prompt)
     try:
@@ -37,31 +49,49 @@ def generate_company_profile():
 
 # Function to format company profile as plain text
 def format_company_profile(company):
-    personnel = "\n".join([f"- {person['name']}: {person['role']}" for person in company['personnel']])
+    # Handle missing or differently named 'personnel' key
+    personnel_list = company.get("personnel", [])
+    if not personnel_list:
+        personnel_text = "- No se proporcionó información de personal clave."
+    else:
+        personnel_text = "\n".join([f"- {person['name']}: {person['role']}" for person in personnel_list])
+    
     return f"""
-    **Productos o Servicios**: {company['products']}
-    **Inventario**: {company['inventory']}
-    **Capital Inicial**: ${company['capital']}
-    **Número de Empleados**: {company['employees']}
-    **Satisfacción de Empleados**: {company['satisfaction']}%
+    **Productos o Servicios**: {company.get('products', 'No disponible')}
+    **Inventario**: {company.get('inventory', 'No disponible')}
+    **Capital Inicial**: ${company.get('capital', 0)}
+    **Número de Empleados**: {company.get('employees', 0)}
+    **Satisfacción de Empleados**: {company.get('satisfaction', 0)}%
     **Personal Clave**:
-    {personnel}
+    {personnel_text}
     """
 
 # Function to generate a challenge using Gemini API
 def generate_challenge(company):
     prompt = f"""
     Eres un simulador de negocios. Basándote en la siguiente empresa:
-    - Productos: {company['products']}
-    - Inventario: {company['inventory']}
-    - Capital: ${company['capital']}
-    - Empleados: {company['employees']}
+    - Productos: {company.get('products', 'No disponible')}
+    - Inventario: {company.get('inventory', 'No disponible')}
+    - Capital: ${company.get('capital', 0)}
+    - Empleados: {company.get('employees', 0)}
     Genera un desafío realista en español que enfrente el CEO, con 4 opciones de respuesta (una claramente mejor, una neutral, dos negativas). Incluye:
     - Descripción del desafío
     - 4 opciones de respuesta (etiquetadas A, B, C, D)
     - La opción correcta (letra)
     - Explicación de por qué la opción correcta es la mejor y las consecuencias de cada opción
     Devuelve la respuesta en formato JSON.
+    Ejemplo:
+    {{
+      "description": "Un cliente importante está insatisfecho...",
+      "options": {{
+        "A": "Ofrecer un descuento...",
+        "B": "Ignorar el problema...",
+        "C": "Aumentar precios...",
+        "D": "Cambiar el producto..."
+      }},
+      "correct_option": "A",
+      "explanation": "A es la mejor opción porque..."
+    }}
     """
     response = model.generate_content(prompt)
     try:
@@ -84,9 +114,9 @@ def update_company_state(company, choice, challenge):
     else:
         impacts[choice] = {"capital": -random.randint(5000, 20000), "employees": -random.randint(0, 2), "satisfaction": -random.randint(5, 15)}
     
-    company["capital"] += impacts[choice]["capital"]
-    company["employees"] = max(0, company["employees"] + impacts[choice]["employees"])  # Prevent negative employees
-    company["satisfaction"] = max(0, min(100, company["satisfaction"] + impacts[choice]["satisfaction"]))
+    company["capital"] = company.get("capital", 0) + impacts[choice]["capital"]
+    company["employees"] = max(0, company.get("employees", 0) + impacts[choice]["employees"])
+    company["satisfaction"] = max(0, min(100, company.get("satisfaction", 0) + impacts[choice]["satisfaction"]))
     
     if company["capital"] <= 0 or company["employees"] <= 0 or company["satisfaction"] <= 10:
         st.session_state.game_over = True
@@ -97,8 +127,8 @@ def update_company_state(company, choice, challenge):
 def evaluate_final_state(initial_company, final_company):
     prompt = f"""
     Compara el estado inicial y final de una empresa:
-    Inicial: Capital ${initial_company['capital']}, {initial_company['employees']} empleados, satisfacción {initial_company['satisfaction']}%
-    Final: Capital ${final_company['capital']}, {final_company['employees']} empleados, satisfacción {final_company['satisfaction']}%
+    Inicial: Capital ${initial_company.get('capital', 0)}, {initial_company.get('employees', 0)} empleados, satisfacción {initial_company.get('satisfaction', 0)}%
+    Final: Capital ${final_company.get('capital', 0)}, {final_company.get('employees', 0)} empleados, satisfacción {final_company.get('satisfaction', 0)}%
     Determina si la empresa mejoró, empeoró o quebró. Explica por qué en español.
     """
     response = model.generate_content(prompt)
@@ -140,9 +170,9 @@ elif page == "Simulación":
         
         # Display current company state
         st.write(f"**Estado Actual**")
-        st.write(f"- Capital: ${company['capital']}")
-        st.write(f"- Empleados: {company['employees']}")
-        st.write(f"- Satisfacción: {company['satisfaction']}%")
+        st.write(f"- Capital: ${company.get('capital', 0)}")
+        st.write(f"- Empleados: {company.get('employees', 0)}")
+        st.write(f"- Satisfacción: {company.get('satisfaction', 0)}%")
         
         if st.session_state.round < 20 and not st.session_state.game_over:
             # Generate challenge
@@ -199,9 +229,9 @@ elif page == "Resultados":
         st.header("Resultados Finales")
         company = st.session_state.company
         st.write(f"**Estado Final de la Empresa**")
-        st.write(f"- Capital: ${company['capital']}")
-        st.write(f"- Empleados: {company['employees']}")
-        st.write(f"- Satisfacción: {company['satisfaction']}%")
+        st.write(f"- Capital: ${company.get('capital', 0)}")
+        st.write(f"- Empleados: {company.get('employees', 0)}")
+        st.write(f"- Satisfacción: {company.get('satisfaction', 0)}%")
         
         # Evaluate final state
         evaluation = evaluate_final_state(st.session_state.initial_company, company)
